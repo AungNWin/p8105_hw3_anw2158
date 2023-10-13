@@ -144,3 +144,99 @@ ggplot(ny_df, aes(x = data_value, fill = response)) +
 ```
 
 #### Problem 3
+
+```{r}
+demogrpahic_df = read_csv("data/nhanes_covar.csv", skip = 4) %>% 
+  janitor::clean_names()%>% 
+  filter(age >= 21) %>% 
+  drop_na()
+
+accelarometer_df = read_csv("data/nhanes_accel.csv") %>% 
+  janitor::clean_names()
+
+merged_df= demogrpahic_df %>% 
+  inner_join(accelarometer_df, by = "seqn") %>% 
+  mutate(sex = recode (sex, "1"= "Male", "2"="Female" ), 
+    education = recode(education, 
+                          "1" = "Less than high school", 
+                          "2" = "High school equivalent", 
+                          "3" = "More than high school")
+    )
+```
+
+```{r}
+merged_df %>% 
+  count(education, sex) %>% 
+  pivot_wider(
+    names_from = sex,
+    values_from = n) %>% 
+  arrange(education) %>% 
+  knitr::kable(digits = 2)
+```
+
+```{r}
+ggplot(merged_df, aes(x = education, y = age, fill = sex)) +
+  geom_boxplot() +
+  labs(title = "Age Distributions by Gender and Education",
+       x = "Education Level",
+       y = "Age") +
+  theme_minimal() +
+  scale_fill_manual(values = c("Male" = "blue", "Female" = "pink"))
+```
+
+From graph, the female is older than male at the education level of high school equivalent. The age of male and female is approximately equal at the education level of less than high school. The male is older than female at the education level of more than high school. 
+
+```{r}
+total_activity_df = merged_df %>%
+  pivot_longer(cols = starts_with("min"), 
+               names_to = "minute", 
+               values_to = "activity") %>% 
+  group_by(seqn) %>%
+  summarise(total_activity = sum(activity, na.rm = TRUE))
+```
+
+```{r}
+final_df= total_activity_df %>% 
+  inner_join(demogrpahic_df, by = "seqn") %>% 
+  mutate(sex = recode (sex, "1"= "Male", "2"="Female" ), 
+    education = recode(education, 
+                          "1" = "Less than high school", 
+                          "2" = "High school equivalent", 
+                          "3" = "More than high school")
+    )
+
+ggplot(final_df, aes(x = age, y = total_activity, color = sex)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) + 
+  facet_wrap(~ education, scales = "free_y") +
+  labs(title = "Total Activity by Age, Gender, and Education Level",
+       x = "Age",
+       y = "Total Activity") +
+  theme_minimal() +
+  scale_color_manual(values = c("Male" = "blue", "Female" = "pink"))
+```
+
+In the high school equivalent education plot, both males and females show a decrease in total activity as they age. Females have higher activity levels throughout adulthood compared to males in this education category. For the less than high school education plot, both genders experience a decrease in total activity as they age. There's a notable crossover at age 40 where males, initially less active, become more active than females. For the third plot which is more than high school education, the pattern of decreasing activity with age persists. Again, females exhibit higher activity levels compared to males, similar to the first category. 
+
+```{r}
+long_df= merged_df %>%
+  pivot_longer(cols = starts_with("min"), 
+               names_to = "minute", 
+               values_to = "activity") %>%
+  mutate(hour = as.numeric(str_replace(minute, "min", "")) / 60)
+
+ggplot(long_df, aes(x = hour, y = activity, color = sex)) +
+  geom_point(alpha=.5, size=.5) +
+  geom_smooth(se = FALSE) +
+  facet_wrap(~ education) +  
+  labs(
+    title = "24-hour Activity Time Courses by Education Level",
+    x = "Hour of the Day",
+    y = "Activity Level",
+    color = "Sex"
+  ) +
+  scale_x_continuous(breaks = seq(0, 24, 4)) + 
+  theme_minimal()
+```
+
+From the three graphs, the activity level of both male and female is the lowest during 4 hr of the day and the activity level reaches at the peak around 8 hr of the day and decreases after that. Moreover, the female activilty level is higher than male one based on the three plots. 
